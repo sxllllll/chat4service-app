@@ -1,0 +1,23 @@
+<template>
+		<chat4service :company-id="1"></chat4service>
+</template>
+
+<script>
+	export default {
+		data() {
+			return {
+				title: 'Hello'
+			}
+		},
+		onLoad() {
+
+		},
+		methods: {
+
+		}
+	}
+</script>
+
+<style>
+
+</style>

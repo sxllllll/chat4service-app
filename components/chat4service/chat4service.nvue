@@ -1,0 +1,1113 @@
+<template>
+	<view class="container " :style="{'background':chatConfig.bg}">
+		<!--  头部 -->
+		<view class="header"  :style="{background:chatConfig.tabbar}">
+			<view class="" :style="{height:navBarHeight + 'px'}"></view>
+			<view class="row items-center between px-16" :style="{height:headerHeight + 'px'}">
+				<view class="">
+					<chat-remixicon v-if="chatConfig.isback" name="ri-arrow-left-s-line" size="50rpx" color="#444" @onTap="reback"></chat-remixicon>
+				</view>
+				<view>
+					<text v-if="service_status === 1">Customer service online</text>
+					<text v-else-if="service_status === 0">service is not online</text>
+					<text v-else-if="service_status === 2"> waiting... </text>
+				</view>
+				<view class="">
+					<chat-remixicon v-if="chatConfig.isback" name="ri-customer-service-2-line" size="40rpx" color="#444" @onTap="openSelectService"></chat-remixicon>
+				</view>
+			</view>
+		</view>
+		<!-- 内容区域 --> 
+		<view class="content"  :style="{ opacity: opacity,height : bodyHeight +'px'}" >
+			<scroll-view 
+			:scroll-top="scrollTop" 
+			scroll-y="true" 
+			class="scroll-body" 
+			id="scrollID"
+			:upper-threshold="120"
+			:scroll-with-animation="true"
+			@scrolltoupper="scrollUpper"
+			@scrolltolower="scrollLower" 
+			@scroll="scroll"
+			:style="{ height : bodyHeight +'px' }"
+			>
+				<view class="content-block container-padding " :style="{'min-height':bodyHeight +'px' }" id="scrollChildID" @tap="()=>closeActiveBottom()">
+				<template v-for="(item,index) in chat.list" >
+						<template v-if="item.is_del == 0">
+							<!-- 接收方 -->
+							<view class="block"  :key="item.key"  v-if="item.chat_type > 0 ">
+								<view class="content-block-section content-block--send row ">
+									<view class="proxy-avatar">
+										<image :src="customServiceAvatar" v-if="customServiceAvatar" mode="widthFix" class="proxy-avatar-image"></image>
+										<image :src="chatConfig.service_avatar" v-else-if="chatConfig.service_avatar" mode="widthFix" class="proxy-avatar-image"></image>
+										<image :src="serviceIcon" v-else mode="widthFix" class="proxy-avatar-image"></image>
+									</view>	
+									<view class="proxy-content send-proxy-content hide">
+										<!-- 文本 -->
+										<view  v-if="item.type==1">
+											<!-- 是否翻译 -->
+											<template v-if="chatConfig.is_translate">
+												<!-- 翻译中 -->
+												<text class="content-text" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}" v-if="item.transfer == transferLoad">
+													Opposite party is entering...
+												</text>
+												<!-- 译文 -->
+												<text class="content-text" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}" v-else-if="item.transfer" >
+													{{item.transfer}}
+												</text>
+												<!-- 翻译失败 -->
+												<text class="content-text" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}" v-else>
+													canceled
+												</text>
+											</template>
+											<!-- 原文 -->
+											<text class="content-text" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}" :class="{'border-t': chatConfig.is_original && chatConfig.is_translate }" v-if="chatConfig.is_original  || !chatConfig.is_translate">
+												{{item.content}}
+											</text>
+										</view>
+										<!-- 图片 -->
+										<view class=" content-text" v-if="item.type==3" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}">
+											<image :src="item.content" @tap="()=>previewImage(item.content , item.key)" mode="widthFix" class="rounded content-image"></image>
+										</view>	
+										<!-- 文件 -->
+										<view class="content-file content-text row items-center" :style="{background:chatConfig.bg_service,color:chatConfig.text_color}" v-if="item.type==2" >
+											<image :src="fileIcon" @tap="()=>download(item.content , item.file.name , item.file.ext )" mode="widthFix" style="width: 116rpx; height: 128rpx;"></image>
+											<view class="">
+												<text class="font-13" >{{item.file.name}}</text>	
+												<view class="row items-center">
+													<text class="font-13">{{item.file.size < 999999 ? item.file.size : item.file.size + '+'}}</text>		<text  class="font-13" style="margin-left: 5rpx;">k</text>
+													<text class="font-13 ml-10">.{{item.file.ext}}</text>
+												</view>
+											</view>
+											<view class="ml-10"></view>
+										</view>	
+									</view>	
+								</view>
+								<view class="row">
+									<text class="font-12 text-777 read-tip"></text>
+									<view class="row items-center  font-12 text-777">
+										<text class="font-12 text-777" :style="{color:chatConfig.text_color}"> {{getTimeStr(item.createtime)}} </text>
+									</view>	
+								</view>	
+							</view>	
+
+							<!-- 发送方 -->
+							<view class="block" :key="item.key" v-else>
+							<view class="content-block-section content-block--receive row justify-end" >
+								<view class="proxy-content receive-proxy-content  hide" >
+									<!-- 文本 -->
+									<template v-if="item.type == 1">
+										<!-- 是否显示原文 -->
+										<text class="text-white content-text receive-content-text" :style="{background:chatConfig.bg_user,color:chatConfig.text_color}">
+											{{item.content}}
+										</text>	
+									</template>
+									<!-- 图片 -->
+									<view class="content-text receive-content-text" :style="{background:chatConfig.bg_user,color:chatConfig.text_color}" v-if="item.type == 3">
+										<image :src="item.content" @tap="()=>previewImage(item.content , item.key)" mode="widthFix" class="rounded content-image "></image>
+									</view>	
+									<!-- 文件 -->
+									<view class="content-file content-text row items-center receive-content-text" :style="{background:chatConfig.bg_user,color:chatConfig.text_color}" v-if="item.type == 2" >
+										<image :src="fileIcon" @tap="()=>download(item.content , item.file.name , item.file.ext )" mode="widthFix" style="width: 116rpx; height: 128rpx;"></image>
+										<view class="">
+											<text class="font-13">{{item.file.name}}</text>	
+											<view class="row items-center">
+												<text class="font-13">{{item.file.size < 999999 ? item.file.size : item.file.size + '+' }}</text>		<text  class="font-13" style="margin-left: 5rpx;">k</text>
+												<text class="font-13 ml-10">.{{item.file.ext}}</text>
+											</view>
+										</view>
+										<view class="ml-10"></view>
+									</view>
+								</view>
+								<view class="proxy-avatar to-proxy-avatar">
+									<image :src="visitor.avatar" v-if="visitor.avatar"  mode="widthFix" class="proxy-avatar-image"></image>
+									<chat-remixicon name="ri-map-pin-user-fill" size="50rpx" color="#444"></chat-remixicon>
+								</view>	
+							</view>
+							<view class="row justify-end ">
+								<view class="row items-center  font-12 text-777">
+									<text class="font-12 text-777" :style="{color:chatConfig.text_color}"> {{getTimeStr(item.createtime)}} </text>
+								</view>	
+								<text class="font-12 text-777 read-tip read-tip-from" :style="{color:chatConfig.text_color}" v-if="item.readstate == 0">[unread]</text>
+								<text class="font-12 text-777 read-tip read-tip-from" :style="{color:chatConfig.text_color}" v-else>[read]</text>
+							</view>	
+						</view>	
+						</template>
+						<!-- 撤回的消息 -->
+						<view class="block items-center reback" :key="item.key" v-else>
+							<text class="font-13 text-777" :style="{color:chatConfig.text_color}">- Message recalled -</text>	
+						</view>
+					</template>
+				</view>
+			</scroll-view>
+			
+		</view>
+		<!-- 底部 -->
+		<view class="chat-footer row container-padding" :style="{height:footerHeight + 'px' , 'background':chatConfig.bg_input }" >
+			<view class="emoji">
+				<!-- v-if="!isSendBtn" -->
+				<!-- <chat-remixicon name="ri-add-circle-line" size="60rpx" color="#444" @onTap="openEmoji"></chat-remixicon> -->
+				<chat-remixicon name="ri-emotion-laugh-line" :color=" showEmojiItem ? `#d7b640` : `#444`" size="60rpx" @onTap="openEmoji"></chat-remixicon>
+			</view>	
+			<input 
+				type="text" 
+				v-model="chat.content" 
+				class="send-input" 
+				:class="{'send-input-active' : chat.content == '' }"
+				@focus="inputFocus"
+				@blur="inputClose"
+				@confirm="()=>sendMsg()"
+				adjust-position="false"
+				@keyboardheightchange="keyboard"
+			/>  
+			<view class="row around items-center flex-1"  >
+				<chat-remixicon name="ri-add-circle-line" size="60rpx" v-if="chat.content == ''"  :color=" showActiveItem ? `#d7b640` : `#444`" @onTap="openActive"></chat-remixicon>
+				<view class="send-btn" @tap="()=>sendMsg()" v-else :style="{background:chatConfig.bg_send}" >
+					<chat-remixicon name="ri-send-plane-fill" size="45rpx" color="#efefef"  @onTap="()=>sendMsg()"></chat-remixicon>
+				</view>
+			</view>
+		</view>
+		
+		<!-- 操作栏 -->
+		<view class="activeBottom " :style="{height:keyboardHeight+'px' , width:'750rpx'}">
+			<scroll-view
+			:scroll-y="true" 
+			:scroll-with-animation="true"
+			:style="{ height : keyboardHeight +'px' , 'background':chatConfig.bg_input }"
+			>
+			<template v-if="showActiveItem">
+				<!-- <emoji /> -->
+				<view class="activeOpenDialog flex row items-center" :style="{'padding-top': keyboardHeight == 0 ? '0rpx' :  '38rpx' }">
+					<view class="activeOpenDialog-item">
+						<!-- 上传图片 -->
+						<chat-remixicon name="ri-image-fill" size="68rpx" color="#444" @onTap="openImage"></chat-remixicon>
+					</view>
+					<view class="activeOpenDialog-item">
+						<!-- 上传文件 -->
+						<chat-remixicon name="ri-file-upload-line" size="68rpx" color="#444" @onTap="openFile"></chat-remixicon>
+					</view>
+				</view>
+			</template>
+			
+			
+			<view class="activeOpenDialog row flex-center wrap emoji-content" v-if="showEmojiItem" >
+				<text v-for="item in emoji" class="emoji" @click="chat.content += item" :style="{opacity: showEmojiItem ? 1 : 0}">
+					{{item}}
+				</text>
+			</view>
+			</scroll-view>
+			
+		</view>
+		
+		<!-- 侧边栏 -->
+		<uni-popup type="top" ref="selectPopupRef" @change="changePopup">
+			<view :style="{height: headerHeight + 'px' }"></view>
+			<scroll-view
+			:scroll-y="true" 
+			:scroll-with-animation="true"
+			:style="{ height : bodyHeight +'px' }"
+			>
+			<view class="items-center">
+				<view class="select-service" @click="()=>selectService(item)" :class="{'current-service':item.id == visitor.cid }" v-for="item in customService">
+					<view :class="{'disabled':(stimer && item.online) || item.id == visitor.cid  }">
+						<view class="proxy-avatar select-avatar" :class="{'border-active': item.online }">
+							<image :src="item.avatar" v-if="item.avatar" mode="widthFix" class="proxy-avatar-image"></image>
+							<image :src="chatConfig.service_avatar" v-else-if="chatConfig.service_avatar" mode="widthFix" class="proxy-avatar-image"></image>
+							<image :src="serviceIcon" v-else mode="widthFix" class="proxy-avatar-image"></image>
+						</view>
+						<text class="u-offline-state" :class="{'online-state': item.online }"></text>
+					</view>
+					<view style="margin-top: 4rpx;">
+						<text class="service-name">
+							{{ item.nickname ? item.nickname : item.username }}
+						</text>
+					</view>
+				</view>
+			</view>	
+			</scroll-view>
+				
+		</uni-popup>
+		
+	</view>
+</template>
+
+<script>
+	// #ifdef APP-NVUE
+		import chooseFile from "./js_sdk/appChooseFile/changeFile.js"
+	// #endif
+	
+	import httpSdk  , { CID_STORE }  from "./http_sdk.js"
+	import LangCode from "./lang_code.js"
+	import socketSdk from "./socket_sdk.js"
+	import handlers , { SEND_CODE } from "./handlers.js"
+	import emoji from "./emoji.js"
+	
+	// 预设操作项的高度
+	let  initKeyBoardHeight = 322;
+	let  curDate = new Date()
+	 // 翻译状态 标识
+	const transferLoad = "IM_SERVICE_VERSION_0.0.1"
+	
+	export default {
+		name:"chat4service",
+		props:{
+			footerHeight: { // 底部高度
+				type:Number,
+				default: 55,
+			},
+			headerHeight: {  // 头部高度
+				type:Number,
+				default: 45,
+			},
+			companyId: {  // 公司ID
+				type:Number,
+				default: 0,
+			},
+			option: {  // 携带的参数
+				type:Object,
+				default: ()=> ({
+					cv_id:0,
+					lang:"",
+					avatar:"",
+					name:"",
+					url:"",
+					system:"",
+					way:"",
+					cm_id:0
+				})
+			},
+			fileIcon:{
+				type:String,
+				default:"https://chat.chat4service.com/file.png"
+			},
+			serviceIcon: {
+				type:String,
+				default:"https://chat.chat4service.com/service.png"
+			}
+		},
+		watch:{
+			
+		},
+		data() {
+			return {
+				emoji:emoji,
+				opacity:0, // 是否可见内容
+				service_status: 0, // 当前状态
+				chat: { // 聊天信息
+					content: "",
+					type: 1 , // 1文本 2文件 3图片
+					list:[],
+					page:0,
+					pagesize:20,
+					total: 0,
+				},
+				transferLoad:transferLoad,
+				keyboardHeight:0, // 初始假设键盘弹出得高度
+				keyboardClock:false, // 是否弹出操作
+				showActiveItem:false, // 是否显示操作项
+				showEmojiItem:false, // 是否显示emoji
+				bodyHeight:0, // 内容高度
+				navBarHeight: 0, // 导航高度
+				scrollTop : 0 ,  // 滚动得高度
+				emit: null, // 发送事件
+				visitor: { // 个人基本信息
+					cid  :   0,
+					company_id :  0,
+					sid :  "",
+					vistor_id: 0,
+					lang: 'en',
+				},
+				chatConfig: { // 默认聊天配置
+					isback: true,
+					is_selector: true,
+					plum: true,
+					is_translate: true,
+					is_original: false,
+					back_url: "",
+					custom_avatar: '',
+					service_avatar: '',
+					bg_img: '',
+					service_lang:'en',
+					bg:"#f7f8fa",
+					bg_service:"#e1e3e3",
+					bg_user:"#837de7",
+					bg_input:"#ffffff",
+					bg_send:"#8fa0df",
+					text_color:"#404040",
+					tabbar: "#e7e7e7",
+					web_icon: "" ,
+					web_title: "IM-SERVICE"
+				},
+				customService : [ ], //  客服列表
+				loopTimer: null,
+				stimer:null,
+				files: {  // 上传的文件信息
+					size: 0,
+					name:'',
+					ext: '',
+				}
+			};
+		},
+		computed:{
+			// 获取会话的客服头像
+			customServiceAvatar(){
+				return null
+			}	
+		},
+		created() {
+			if (this.chat.content != "") {
+				this.isSendBtn=true
+			}
+			let systemInfo = uni.getSystemInfoSync()
+			this.navBarHeight = systemInfo.statusBarHeight;
+			
+			uni.showLoading({
+				mask:true
+			})
+			this.bodyHeight = systemInfo.screenHeight - (this.footerHeight + this.headerHeight + 	this.navBarHeight )
+			this.$nextTick(()=> {
+				this.scrollIntoBottom()
+			})
+			
+			// #ifdef H5
+				window.addEventListener("resize", e => {
+					var resizeHeight= window.innerHeight;
+					this.bodyHeight = resizeHeight - (this.footerHeight + this.headerHeight + 	this.navBarHeight)
+				})
+			// #endif
+			
+			// http 初始连接
+			if ( this.companyId  > 0 ) {
+				let lowerLang = systemInfo.language.toLowerCase() 
+				let lang = lowerLang.substring(0,2)
+				// 操作系统
+				let opt = {
+					system: systemInfo.system,
+					way: systemInfo.model,
+					lang: lang
+				}
+				let params = Object.assign( opt , this.option )
+				// 系统语言是否包含翻译项语言类型，不统一默认英文
+				if ( !LangCode.includes( params.lang ) ) params.lang  = "en";
+				// 上一次的 客服id
+				if ( !params.cv_id ) {
+					params.cv_id = uni.getStorageSync( CID_STORE )
+				}
+				// 请求初始连接
+				httpSdk.httpStart( this.companyId,  params ).then(res=> {
+					this.visitor = {
+						vistor_id : res.vistor_id,
+						cid: res.cid,
+						company_id: res.company_id,
+						lang: res.lang,
+						sid: res.sid,
+					}
+					this.customService = res.services;
+					
+					// 存储一下本次的客服id
+					uni.setStorage({
+						data: res.cid ,
+						key: CID_STORE ,
+					})
+					
+					if ( res.session_config && res.session_config.configs ) {
+						this.parseSessionConfig( res.session_config.configs )
+					}
+					this.connection()
+				})
+			}
+			
+		},
+	    mounted() {
+			// var stHeight = uni.getSystemInfoSync().statusBarHeight
+	    },
+		methods:{
+			//  socket 请求处理
+			...handlers,
+			
+			// socket 连接
+			connection(){
+				// 连接 socket
+				let { emit , message } = socketSdk( this.Login , this.visitor.sid )
+				this.emit = emit;
+				// 接收消息
+				message((res)=> {
+					let fn = this[res.code]
+					if ( fn &&  Object.prototype.toString.call(fn) == '[object Function]' )  {
+						fn( res.data )
+					}
+				})
+			},
+			
+			// 加载聊天信息
+			loadMessages(){
+				return new Promise(( resolve , reject ) => {
+					if ( this.chat.page >  Math.ceil( this.chat.total / this.chat.pagesize ) ) {
+						return reject()
+					}
+					// uni.showLoading({
+					// 	mask:true
+					// })
+					this.chat.page ++ 
+					httpSdk.messages( {
+						page : this.chat.page,
+						pagesize : this.chat.pagesize,
+						ssid : this.visitor.sid,
+						cm_id: this.visitor.company_id
+					} ).then(res => {
+						this.chat.total = res.total
+						this.chat.list.unshift( ...res.data.reverse() )
+						resolve()
+						uni.hideLoading()
+					}).catch(res => { 
+						uni.hideLoading()
+					} )
+				})
+			},
+			// 关闭激活项以及键盘
+			closeActiveBottom(){
+				this.scrollIntoBottom(-1)
+				this.showActiveItem = false
+				this.showEmojiItem = false
+				this.bodyHeight =  this.bodyHeight + this.keyboardHeight
+				this.keyboardHeight = 0
+				uni.hideKeyboard()
+			},
+			// 打开 emoji 标签
+			openEmoji(){
+				this.showActiveItem = false;
+				if ( this.showEmojiItem ) return false;
+				this.$nextTick(()=> {
+					this.scrollIntoBottom(2)
+					if ( this.keyboardHeight == 0 ) {
+						this.keyboardHeight = initKeyBoardHeight
+						this.bodyHeight = this.bodyHeight - initKeyBoardHeight
+					}else{
+						uni.hideKeyboard()
+					}
+					this.showEmojiItem = true;
+				})
+				
+			},
+			// 打开操作项
+			openActive(){
+				this.showEmojiItem = false;
+				if ( this.showActiveItem ) return false;
+				this.$nextTick(()=> {
+					this.scrollIntoBottom(2)
+					if ( this.keyboardHeight == 0 ) {
+						this.keyboardHeight = initKeyBoardHeight
+						this.bodyHeight = this.bodyHeight - initKeyBoardHeight
+					}else{
+						uni.hideKeyboard()
+					}
+					this.showActiveItem = true;
+				})
+				
+			},
+			// 输入框获取焦点
+			inputFocus(e){
+				this.showActiveItem = false;
+				this.showEmojiItem = false
+				// #ifdef H5
+					if (  this.keyboardHeight > 0  ) {
+						this.bodyHeight =  this.bodyHeight + this.keyboardHeight
+						this.keyboardHeight = 0
+					}
+				// #endif
+				this.scrollIntoBottom(-1)
+			},
+			// 失去焦点
+			inputClose(e){
+				console.log("bodyHeight=", this.bodyHeight , " keyboardHeight=",this.keyboardHeight , " showActionItem=" ,this.showActionItem)
+			},
+			// 临时code生成
+			getSendKey(curtime){
+				 return curtime+"_"+ Math.floor(Math.random() * (1000000 - 0 ) + 0 )
+			},
+			// 发送消息
+			sendMsg(msg=""){
+				//文本类型 且不为空 或者 msg不为空
+				const flag = ( this.chat.type == 1 && this.chat.content.trim() != "" || msg )
+				if( this.emit && this.visitor.vistor_id != 0 && flag ) {
+					let curtime = new Date().getTime()
+					let id = this.getSendKey(curtime)
+					let sendParams = {
+						id: id ,  // 用于标识
+						sid : this.visitor.vistor_id + '',
+						ssid : this.visitor.sid,
+						to: this.visitor.cid + '' ,
+						from_lang: this.visitor.lang,
+						is_transfer: this.chatConfig.is_translate, 
+						to_lang: this.chatConfig.service_lang,
+						content: msg ? msg : this.chat.content,
+						msg_type : this.chat.type,
+						company_id: this.visitor.company_id,
+						files: this.files
+					}
+					
+					// 消息发送
+					this.emit( SEND_CODE.CMD_MSG , sendParams  )
+					sendParams.createtime = parseInt( curtime / 1000 )
+					sendParams.readstate = 0;
+					sendParams.chat_type = -1;
+					sendParams.is_del = 0;
+					sendParams.type = this.chat.type ;
+					sendParams.file = {...this.files}
+					// 加入本地记录
+					this.chat.list.push( sendParams )
+					this.chat.content = ""
+					this.chat.type = 1;
+					
+					// 文件清空
+					this.files.size = 0
+					this.files.name = ""
+					this.files.ext = ""
+					
+					this.closeActiveBottom()
+				}
+			},
+			// 上传图片
+			openImage(){
+				let that  = this;
+				that.chat.type = 3
+				uni.chooseImage({
+					count:1,
+					sizeType:["compressed"],
+					extension:["png","jpg","jpeg","gif","svg","webp","bmp","ai"],
+					sourceType:[
+						"camera","album"
+					],
+					success(res){
+						const tempFilePaths = res.tempFilePaths;
+						let filePath = tempFilePaths[0];
+						that.files.size = res.tempFiles[0].size
+						httpSdk.upload( filePath ).then(res => {
+							if ( res.status && res.data.data ) {
+								let arr = res.data.data.split("/")
+								let last = arr[ arr.length - 1 ]
+								let spt = last.split(".")
+								that.files.name = spt[0]  // 文件名称
+								that.files.ext = spt[1]  // 文件后缀
+								//  发送消息
+								that.sendMsg( res.data.data )
+							}else{
+								uni.showToast({
+									icon:"error",
+									title:"upload failed!"
+								})
+							}
+						})
+					}
+				})
+			},
+			
+			//  上传文件
+			openFile(){
+				let that = this;
+				// #ifdef APP-NVUE
+					chooseFile((filepath) => {
+						httpSdk.upload( filepath ).then(res => {
+							if (res.status && res.data.data ) {
+								let arr = filepath.split("/")
+								let last = arr[ arr.length - 1 ]
+								let spt = last.split(".")
+								that.files.ext = spt[1]  // 文件后缀
+								that.files.name = spt[0]  // 文件名称
+								that.files.size = res.data.size // 文件大小
+								that.chat.type = 2
+								//  发送消息
+								that.sendMsg( res.data.data )
+							}else{
+								uni.showToast({
+									icon:"error",
+									title:"upload failed!"
+								})
+							}
+						})
+					})
+				// #endif
+				
+				// #ifndef APP-PLUS 
+				uni.chooseFile({
+					count:1,
+					type:'all',
+					success(res){
+						const tempFilePaths = res.tempFilePaths;
+						let filePath = tempFilePaths[0];
+						that.files.size = res.tempFiles[0].size
+						that.files.name = res.tempFiles[0].name
+						httpSdk.upload( filePath ).then(res => {
+							if (res.status && res.data.data ) {
+								let arr = res.data.data.split("/")
+								let last = arr[ arr.length - 1 ]
+								let spt = last.split(".")
+								that.files.ext = spt[1]  // 文件后缀
+								
+								that.chat.type = 2
+								//  发送消息
+								that.sendMsg( res.data.data )
+							}else{
+								uni.showToast({
+									icon:"error",
+									title:"upload failed!"
+								})
+							}
+						})
+					}
+				})
+				// #endif
+			},
+			
+			//  预览图
+			previewImage( url , key ){
+				// 过滤过所有图片数据
+				let imagesData = this.chat.list.filter( item => item.type == 3 )
+				let index = imagesData.findIndex( item => item.key == key )
+				let imgs = imagesData.map( item => item.content )
+				if ( index != -1 ) {
+					uni.previewImage({
+						current: index,
+						urls:imgs
+					})
+				}
+			},
+			
+			// 内容区域滚动
+			scroll(e){
+				// console.log(e)
+			},
+			// 滚动指定顶部位置触发
+			scrollUpper(e){
+				this.loadMessages()
+			},
+			scrollLower(e){
+				// console.log(e)
+			},
+			// 滚动内容底部
+			scrollIntoBottom(into = 0){
+				let tant = this;
+				this.$nextTick(() => {
+					let query = uni.createSelectorQuery()
+					let client = query.select("#scrollID").boundingClientRect() 
+					let childClient= query.select("#scrollChildID").boundingClientRect()
+					client.exec(res => {
+						let childClientRef =  res[1]
+						tant.scrollTop = childClientRef.height - into
+					})
+				})
+			},
+			
+			// 解析会话配置
+			parseSessionConfig( conf ){
+				try {
+					let configs =	JSON.parse(conf)
+					this.chatConfig = {...this.chatConfig , ...configs }
+				}catch(err){
+					console.log(err)
+				}
+			},
+			
+			// 获取时间
+			getTimeStr(time){
+				if( time ) {
+					let date = curDate.getDate()
+					let ddtime = new Date( time * 1000 )
+					let ddate = ddtime.getDate()
+					let minutes = ddtime.getHours()
+					let ap = "am"
+					if ( minutes > 12 ) {
+						ap = "pm"
+					}
+					let ht = `${this.sportTime( minutes )}:${this.sportTime( ddtime.getMinutes() )} ${ap}`
+					if( ddate = date ) {
+						return 	ht
+					}
+					return `${ddtime.getFullYear()}-${this.sportTime( ddtime.getMonth())}-${this.sportTime(ddate)} ${ht}`
+				}
+				return ''
+			},
+			sportTime(num){
+				return String("0" + num).slice(-2)
+			},
+			
+			// 是否可返回
+			reback(){
+				if( this.chatConfig.isback ) {
+					if ( this.chatConfig.back_url != "") {
+						// #ifdef APP-PLUS-NVUE
+							plus.runtime.openURL( this.chatConfig.back_url )
+						// #endif
+						
+						// #ifdef  H5
+							let dload = document.createElement("a");
+						  dload.target="_block";
+						  dload.href = this.chatConfig.back_url;
+						  document.body.appendChild(dload);
+						  dload.click();
+						  dload.remove(); // 下载之后把创建的元素删除
+						// #endif
+					}else{
+						uni.navigateBack()
+					}
+				}
+			},
+			
+			// 监听手机键盘
+			keyboard (ev) {
+				let res = ev.detail
+				// 监听键盘
+				if ( res.height > 0 ) {
+					initKeyBoardHeight = res.height
+					if ( this.keyboardHeight == 0 ) {
+						this.bodyHeight =  this.bodyHeight - initKeyBoardHeight 
+					}
+					this.keyboardHeight = res.height 
+					this.scrollIntoBottom()
+					return false;
+				}
+				// 是否处于打开操作项
+				if( this.showActiveItem || this.showEmojiItem ) {
+					return false;
+				}
+				this.bodyHeight =  this.bodyHeight + this.keyboardHeight
+				this.keyboardHeight = 0
+				this.scrollIntoBottom()
+			},
+			
+			// 选择客服
+			openSelectService(){
+				if(  this.$refs.selectPopupRef ) {
+					this.$refs.selectPopupRef.open("right")
+				}
+			},
+			
+			//  关闭侧边栏监听
+			changePopup({show}){
+				if ( !this.visitor.company_id ) return false;
+				clearInterval(this.loopTimer)
+				// false关闭 true开启
+				if( show ) {
+					const fn = ()=>{
+						httpSdk.serviceState( this.visitor.company_id ).then(res => {
+							if ( res.data && res.data.length > 0 ) {
+								this.customService = this.customService.map(item => {
+									item.online = false;
+									if ( res.data.includes( item.id ) ) {
+										item.online = true;
+									}
+									return item;
+								})
+							}else{
+								this.customService = this.customService.map(item => {
+									item.online = false;
+									return item;
+								} )
+							}
+						})
+					}
+					fn()
+					this.loopTimer = setInterval(()=> {
+						fn()
+					}, 3000 )
+				}else{
+					clearInterval(this.loopTimer)
+				}
+			},
+			
+			// 选择客服
+			selectService( item ){
+				if ( this.stimer ) {
+					uni.showToast({
+						icon:"none",
+						title:"frequent operation",
+					})
+					return false;
+				}
+				if( item.id == this.visitor.cid || !this.chatConfig.is_selector ) {
+					return false;
+				}
+				if ( ! item.online ) {
+					uni.showToast({
+						icon:"none",
+						title:"not selectable",
+					})
+					return false;
+				}
+				this.visitor.cid = item.id
+				// 存储一下本次的客服id
+				uni.setStorage({
+					data: this.visitor.cid ,
+					key: CID_STORE ,
+				})
+				uni.closeSocket({})
+				//延迟10秒后可选择 客服
+				this.stimer =setTimeout(()=> {
+					this.stimer = null
+					clearTimeout(this.stimer)
+				}, 8000 )
+			},
+			//  下载文件
+			download(url , name , ext){
+				let that = this
+				// #ifdef APP-NVUE
+				plus.runtime.openURL( url )
+				uni.downloadFile({
+				  url: url,
+				  success: (data) => {
+					if (data.statusCode === 200) {
+					  uni.saveFile({ //文件保存到本地
+						tempFilePath: data.tempFilePath, //临时路径
+						success: function(res) {
+						  uni.showToast({
+							icon: 'none',
+							mask: true,
+							title: 'download success', 
+							duration: 3000,
+						  });
+						}
+					  });
+					}
+				  },
+				  fail: (err) => {
+					console.log(err);
+					uni.showToast({
+					  icon: 'none',
+					  mask: true,
+					  title: 'download fail',
+					});
+				  },
+				});
+				// #endif
+				
+				// #ifdef H5
+				  let dload = document.createElement("a");
+				  dload.download = name+'.'+ext ;// 设置下载的文件名，默认是'下载'
+				  dload.href = url;
+				  document.body.appendChild(dload);
+				  dload.click();
+				  dload.remove(); // 下载之后把创建的元素删除
+				// #endif
+			}
+			
+		},
+		
+		onHide() {
+			clearInterval(this.loopTimer)
+			if(  this.$refs.selectPopupRef ) {
+				this.$refs.selectPopupRef.close()
+			}
+		},
+		
+		destroyed() {
+			clearInterval(this.loopTimer)
+			if(  this.$refs.selectPopupRef ) {
+				this.$refs.selectPopupRef.close()
+			}
+		}
+		
+	}
+</script>
+
+<style lang="scss" scoped>
+	@import url("./chat4service.css");
+	// 
+	// #ifdef H5
+	uni-page-body{
+		height: 100vh;
+	}
+	// #endif
+	.container{
+		flex: 1;
+		width: 750rpx;
+		background-color: #efefef;
+	}
+	.border-t{
+		border-top: 1px solid #dddddd;
+	}
+	.header {
+		border-bottom: 1px solid #dddddd;
+	}
+	//  内容区域
+	.block {
+		margin: 18rpx 0;
+	}
+	.content {
+		flex: 1;
+		transition-property: opacity ;
+		transition-delay: .5s;
+		transition-duration: .3s;
+		&-block {
+			&-section {
+				margin: 14rpx 0;
+			}
+			&--send {
+				
+			}
+		}
+	}
+	
+	// 头像
+	.proxy-avatar {
+		width: 68rpx;
+		height: 68rpx;
+		border-radius: 12rpx;
+		border:1px solid #ededed;
+		overflow: hidden;
+		margin-right: 18rpx;
+		align-items: center;
+		justify-content: center;
+		&-image{
+			width: 58rpx;
+			height: 58rpx;
+		}
+	}
+	.to-proxy-avatar {
+		margin-right: 0rpx;
+		margin-left: 18rpx;
+	}
+	.read-tip {
+		min-width: 78rpx;
+		margin-left: 18rpx;
+		text-align: center;
+	}
+	.send-proxy-content {
+		margin-right: 80rpx;
+	}
+	.content-text {
+		border-radius: 18rpx ;
+		padding: 22rpx ;
+		font-size: 30rpx;
+		background-color: #eaeaea;
+		max-width: 540rpx;
+		word-break: break-all;
+	}
+	.content-image{
+		max-width: 490rpx;
+	}
+	.receive-proxy-content {
+		margin-left: 80rpx;
+	}
+	.receive-content-text {
+		background-color: #16c297;
+	}
+	.container-padding {
+		padding: 10rpx 24rpx;
+	}
+	.content-block {
+	}
+	
+	.footer {
+		align-items: center;
+	}
+	.emoji {
+		margin-right: 20rpx;
+	}
+	.send-input {
+		border-radius: 12rpx;
+		background-color: white;
+		padding: 0 22rpx;
+		height: 72rpx;
+		width: 500rpx;
+		transition-property:width;
+		transition-duration: .3s;
+	}
+	.send-input-active {
+		width: 540rpx !important;
+	}
+	.send-btn {
+		flex: 1;
+		background-color: #16c297;
+		height: 68rpx;
+		border-radius: 12rpx;
+		margin-left: 20rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 0 15rpx #d3d3d3;
+	}
+	.reback {
+		margin: 40rpx;
+	}
+	.activeBottom {
+		transition-property:height;
+		transition-duration: .15s ;
+	}
+	.activeOpenDialog-item {
+		padding: 20rpx 18rpx;
+		background-color: white;
+		border-radius: 12rpx;
+		margin-right: 30rpx;
+	}
+	.activeOpenDialog {
+		padding: 10rpx 20rpx;
+		align-items: flex-start;
+	}
+	//  底部区域
+	.chat-footer {
+		height: 110rpx;
+		align-items: center;
+		border-top: 2rpx solid #dddddd;
+	}
+	
+	.select-avatar {
+		padding: 8rpx;
+		height: 80rpx;
+		width: 80rpx;
+		border-radius: 50%;
+		margin: 0;
+		position: relative;
+		border: 1px solid #bfbfbf;
+	}
+	
+	.select-service {
+		width: 150rpx ;
+		margin-top: 12rpx;
+		border-radius: 32rpx;
+		align-items: center;
+		justify-content: center;
+		display: flex;
+		position: relative;
+		padding: 16rpx 8rpx;
+	}
+	.u-offline-state {
+		position: absolute;
+		width: 10rpx;
+		height: 10rpx;
+		border-radius: 50%;
+		background-color: #bfbfbf;
+		right: 7rpx;
+		bottom: 7rpx;
+		box-shadow:0 0 0 2px white;
+	}
+	.u-offline-state-off {
+		background-color: #bfbfbf;
+	}
+	.online-state {
+		background-color: #16c297 !important;
+	}
+	.border-active {
+		border: 1px solid #16c297 !important;
+	}
+	.current-service {
+		background: rgba(22 , 194 , 151, .65);
+	}
+	.service-name {
+		text-align: center;
+		font-size: 24rpx;
+		color:#666;
+	}
+	.disabled{
+		background-color: #dddddd;
+		border-radius: 50%;
+	}
+	.emoji {
+		width: 60rpx;
+		height: 60rpx;
+		font-size: 48rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin: 8rpx;
+	}
+</style>
