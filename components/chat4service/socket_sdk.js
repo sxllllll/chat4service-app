@@ -53,9 +53,10 @@ export default (  startFn, sid ) => {
 				emit( cmd.cmd , cmd.data )
 				return 
 			}
+			let time = new Date();
 			emit( SEND_CODE.CMD_PING , { 
 				sid: sid ,
-				time : parseInt( ( new Date() / 1000 ) )
+				time : parseInt( ( time.getTime() / 1000 ) )
 			} )
 		} , 5000)
 	}
