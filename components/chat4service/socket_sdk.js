@@ -77,6 +77,7 @@ export default (  startFn, sid ) => {
 		isConnected = false
 		console.log("onClose",res)
 		reconnect();
+		clearInterval( pingTimer )
 	})
 	
 	// 连接异常

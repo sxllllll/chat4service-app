@@ -1,5 +1,5 @@
 <template>
-		<chat4service :company-id="1"></chat4service>
+		<chat4service :company-id="1" @message="message"></chat4service>
 </template>
 
 <script>
@@ -13,7 +13,10 @@
 
 		},
 		methods: {
-
+			// 通知接收到信息，以此扩展提示
+			message(data){
+				console.log(data)
+			}
 		}
 	}
 </script>

@@ -285,6 +285,10 @@
 				default:"https://chat.chat4service.com/service.png"
 			}
 		},
+		/**
+		 * message 接收到消息 传递父级
+		 */
+		emits:["message"],
 		watch:{
 			
 		},

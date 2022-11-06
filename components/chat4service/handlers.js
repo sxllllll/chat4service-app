@@ -76,6 +76,8 @@ export default {
 	[REVICE_CODE.MSG_STATE_MSG]:function(data) {
 		console.log("RECEVICE MESSAGE .")
 		this.chat.list.push(data)
+		// 通知父级收到消息
+		this.$emit("message" , data)
 		this.$nextTick(()=> {
 			 // 通知客服 消息已读
 			this.emit( SEND_CODE.CMD_CHECK_MESSAGE , {
